@@ -1,0 +1,69 @@
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - ./base-de-datos:/chroma/chroma
+    environment:
+      - CHROMA_DB_IMPL=sqlite
+      - ANONYMIZED_TELEMETRY=False
+    ports:
+      - "8000:8000"
+
+  convertidor:
+    build:
+      context: ./convertidor-archivos
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - ./convertidor-archivos/outputs:/usr/src/app/outputs
+    environment:
+      - PORT=3002
+    depends_on:
+      - chromadb
+
+  chatbot-consulta:
+    build:
+      context: ./chatbot-consulta
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - CHROMA_URL=http://chromadb:8000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - chromadb
+
+  procesador-lote:
+    image: alpine:latest
+    volumes:
+      - ./convertidor-archivos/process_material.sh:/process.sh:ro
+      - ./convertidor-archivos/inputs/primera_parcial/material:/inputs:ro
+      - ./convertidor-archivos/outputs:/outputs:ro
+    depends_on:
+      convertidor:
+        condition: service_healthy
+      chatbot-consulta:
+        condition: service_started
+    command: >
+      sh -c "apk add --no-cache curl jq && 
+             cp /process.sh /tmp/process.sh && 
+             dos2unix /tmp/process.sh && 
+             sh /tmp/process.sh"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - convertidor
+      - chatbot-consulta
+
