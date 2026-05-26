@@ -31,11 +31,28 @@ const chromaClient = new ChromaClient({
 });
 
 /**
- * Genera embeddings para un texto usando Gemini
+ * Genera embeddings para un texto usando Gemini, con reintentos para manejar límites de cuota (429)
  */
-async function generateEmbedding(text) {
-    const result = await embeddingModel.embedContent(text);
-    return result.embedding.values;
+async function generateEmbedding(text, retries = 3, delay = 2000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const result = await embeddingModel.embedContent(text);
+            return result.embedding.values;
+        } catch (error) {
+            const isRateLimit = error.message && (
+                error.message.includes("429") || 
+                error.message.toLowerCase().includes("quota") || 
+                error.message.toLowerCase().includes("too many requests")
+            );
+            if (isRateLimit && i < retries - 1) {
+                console.warn(`[Gemini Embedding] Límite de cuota/429 detectado. Reintentando en ${delay}ms... (Intento ${i + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2; // Backoff exponencial
+                continue;
+            }
+            throw error;
+        }
+    }
 }
 
 app.post('/consultar', async (req, res) => {

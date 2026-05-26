@@ -10,6 +10,12 @@ OUTPUT_DIR="/outputs"
 echo "Esperando a que los servicios estén listos..."
 sleep 2
 
+# --- FASE DE LIMPIEZA ---
+echo "Limpiando archivos antiguos en $OUTPUT_DIR..."
+rm -f "$OUTPUT_DIR"/* 2>/dev/null
+echo "✓ Carpeta de salidas limpia."
+echo "-----------------------------------"
+
 # --- FASE 1: CONVERSIÓN ---
 echo "--- FASE 1: Convirtiendo archivos de $INPUT_DIR a Markdown ---"
 
@@ -56,6 +62,18 @@ else
             RESPONSE=$(curl -s -X POST -F "archivo=@$md_file" "$API_INGESTA_ARCHIVO")
             
             echo "Respuesta: $RESPONSE"
+            
+            # Verificar si la respuesta contiene un error para alertar al usuario
+            if echo "$RESPONSE" | grep -q '"error"'; then
+                echo "✗ Error al ingestar $md_filename"
+            else
+                echo "✓ $md_filename ingestado con éxito."
+            fi
+
+            # Esperamos 3 segundos entre peticiones para evitar la cuota 429 (Too Many Requests) de la API de Gemini
+            echo "Esperando 3 segundos para respetar el límite de peticiones de la API..."
+            sleep 3
+            echo "-----------------------------------"
         fi
     done
 fi

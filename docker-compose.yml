@@ -45,7 +45,7 @@ services:
     volumes:
       - ./convertidor-archivos/process_material.sh:/process.sh:ro
       - ./convertidor-archivos/inputs/primera_parcial/material:/inputs:ro
-      - ./convertidor-archivos/outputs:/outputs:ro
+      - ./convertidor-archivos/outputs:/outputs
     depends_on:
       convertidor:
         condition: service_healthy
