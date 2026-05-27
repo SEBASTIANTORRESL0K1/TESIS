@@ -37,8 +37,16 @@ services:
       - PORT=3003
       - CHROMA_URL=http://chromadb:8000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DB_HOST=mysql
+      - DB_USER=tesis_user
+      - DB_PASSWORD=tesis_password
+      - DB_NAME=tesis_db
+      - JWT_SECRET=super_secret_jwt_key_12345
     depends_on:
-      - chromadb
+      chromadb:
+        condition: service_started
+      mysql:
+        condition: service_healthy
 
   procesador-lote:
     image: alpine:latest
@@ -66,4 +74,37 @@ services:
     depends_on:
       - convertidor
       - chatbot-consulta
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db_tesis
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_1234
+      MYSQL_DATABASE: tesis_db
+      MYSQL_USER: tesis_user
+      MYSQL_PASSWORD: tesis_password
+    volumes:
+      - ./base-de-datos/mysql-data:/var/lib/mysql
+      - ./base-de-datos/mysql-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password_1234"]
+      timeout: 5s
+      retries: 5
+      interval: 5s
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin_panel
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    depends_on:
+      - mysql
 

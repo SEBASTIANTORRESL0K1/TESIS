@@ -24,7 +24,7 @@ out/
 
 # Datos persistentes y archivos generados
 convertidor-archivos/outputs/*.md
-base-de-datos/
+base-de-datos/mysql-data/
 *.sqlite
 
 # Docker

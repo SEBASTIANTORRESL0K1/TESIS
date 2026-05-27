@@ -49,6 +49,22 @@ echo "--- FASE 2: Ingestando archivos .md de $OUTPUT_DIR en ChromaDB ---"
 # Pequeña espera para asegurar que los últimos archivos se escribieron en disco
 sleep 1
 
+# 1. Obtener Token de Autenticación
+echo "Obteniendo token de autenticación para el procesador de lotes..."
+API_AUTH="http://chatbot-consulta:3003/auth/login"
+AUTH_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"admin@tesis.com", "password":"admin123"}' "$API_AUTH")
+
+TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // empty')
+
+if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+    echo "✗ Error de autenticación: No se pudo obtener el token JWT."
+    echo "Respuesta de Auth: $AUTH_RESPONSE"
+    exit 1
+fi
+
+echo "✓ Autenticado correctamente como Administrador."
+echo "-----------------------------------"
+
 # Buscamos solo los archivos .md generados
 if [ -z "$(ls -A "$OUTPUT_DIR"/*.md 2>/dev/null)" ]; then
     echo "No se encontraron archivos .md en $OUTPUT_DIR para ingestar."
@@ -58,8 +74,8 @@ else
             md_filename=$(basename "$md_file")
             echo "Subiendo $md_filename a ChromaDB..."
             
-            # Usamos el nuevo endpoint /ingestar-archivo que recibe el archivo directamente
-            RESPONSE=$(curl -s -X POST -F "archivo=@$md_file" "$API_INGESTA_ARCHIVO")
+            # Usamos el nuevo endpoint /ingestar-archivo que recibe el archivo directamente con token JWT
+            RESPONSE=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -F "archivo=@$md_file" "$API_INGESTA_ARCHIVO")
             
             echo "Respuesta: $RESPONSE"
             
